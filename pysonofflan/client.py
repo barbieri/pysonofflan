@@ -23,7 +23,7 @@ import socket
 class SonoffLANModeClient:
     """
     Implementation of the Sonoff LAN Mode Protocol R3(as used by the eWeLink app)
-    
+
     Uses protocol as documented here by Itead https://github.com/itead/Sonoff_Devices_DIY_Tools/blob/master/other/SONOFF%20DIY%20MODE%20Protocol%20Doc.pdf
     """
 
@@ -94,9 +94,9 @@ class SonoffLANModeClient:
                 # this didn't occur on other platforms (Hassio VM).
                 # I found that sending a HTTP REST message resulted in the device readding itself back on (via add_service) immediately
                 # rather than waiting for it to occur 'naturally'
-                # It could be that my Rpi is not picking up all broadcast messages and so the mDNS cache is expiring, but this has not been 
+                # It could be that my Rpi is not picking up all broadcast messages and so the mDNS cache is expiring, but this has not been
                 # investigated in detail. I would value feedback from other users to see if this 'hack' is called for their setup
-                
+
                 self.send_signal_strength(self.get_update_payload(self.device_id, None))
                 self.logger.debug("Service %s removed (but hack worked)" % name)
 
@@ -111,7 +111,7 @@ class SonoffLANModeClient:
     def add_service(self, zeroconf, type, name):
 
         if self.my_service_name is not None:
-        
+
             if self.my_service_name == name:
                 self.logger.debug("Service %s added (again, likely after hack)" % name)
                 self.my_service_name = None
@@ -120,7 +120,7 @@ class SonoffLANModeClient:
             #    self.logger.debug("Service %s added (not our switch)" % name)
 
         if self.my_service_name is None:
-        
+
             info = zeroconf.get_service_info(type, name)
             found_ip = self.parseAddress(info.address)
 
@@ -143,7 +143,7 @@ class SonoffLANModeClient:
 
             if self.my_service_name is not None:
 
-                self.logger.info("Service type %s of name %s added", type, name) 
+                self.logger.info("Service type %s of name %s added", type, name)
 
                 # listen for updates to the specific device
                 self.service_browser = ServiceBrowser(zeroconf, name, listener=self)
@@ -154,12 +154,12 @@ class SonoffLANModeClient:
                 # add the http headers
                 headers = { 'Content-Type': 'application/json;charset=UTF-8',
                     'Accept': 'application/json',
-                    'Accept-Language': 'en-gb'        
-                }    
+                    'Accept-Language': 'en-gb'
+                }
                 self.http_session.headers.update(headers)
 
                 # find socket for end-point
-                socket_text = found_ip + ":" + str(info.port)          
+                socket_text = found_ip + ":" + str(info.port)
                 self.logger.debug("service is at %s", socket_text)
                 self.url = 'http://' + socket_text
 
@@ -228,11 +228,11 @@ class SonoffLANModeClient:
         :param request: command to send to the device (can be dict or json)
         :return:
         """
-        self.logger.debug('Sending http message to %s: %s ', url, request)      
+        self.logger.debug('Sending http message to %s: %s ', url, request)
         response = self.http_session.post(url, json=request)
-        self.logger.debug('response received: %s %s', response, response.content) 
+        self.logger.debug('response received: %s %s', response, response.content)
 
-        response_json = json.loads(response.content)
+        response_json = json.loads(response.content.decode('utf-8'))
 
         error = response_json['error']
 
@@ -241,7 +241,7 @@ class SonoffLANModeClient:
             # no need to process error, retry will resend message which should be sufficient
 
         else:
-            self.logger.debug('message sent to switch successfully') 
+            self.logger.debug('message sent to switch successfully')
             # no need to do anything here, the update is processed via the mDNS TXT record update
 
 
@@ -262,14 +262,14 @@ class SonoffLANModeClient:
                 self.format_encryption(payload)
                 self.logger.debug('encrypted: %s', payload)
             else:
-                self.logger.error('missing api_key field for device: %s', self.device_id) 
+                self.logger.error('missing api_key field for device: %s', self.device_id)
 
         else:
             payload["encrypt"] = False
 
         return payload
 
-        
+
     """ Encrpytion routines as documented in https://github.com/itead/Sonoff_Devices_DIY_Tools/blob/master/other/SONOFF%20DIY%20MODE%20Protocol%20Doc.pdf
     
     Here are an abstract of the document with the partinent parts for the alogrithm
@@ -295,23 +295,23 @@ class SonoffLANModeClient:
         data["encrypt"] = encrypt
         if encrypt:
             iv = self.generate_iv()
-            data["iv"] = b64encode(iv).decode("utf-8") 
+            data["iv"] = b64encode(iv).decode("utf-8")
             data["data"] = self.encrypt(data["data"], iv)
 
 
     def encrypt(self, data_element, iv):
 
-        api_key = bytes(self.api_key, 'utf-8') 
+        api_key = bytes(self.api_key, 'utf-8')
         plaintext = bytes(data_element, 'utf-8')
 
         hash = MD5.new()
         hash.update(api_key)
         key = hash.digest()
 
-        cipher = AES.new(key, AES.MODE_CBC, iv=iv)     
+        cipher = AES.new(key, AES.MODE_CBC, iv=iv)
         padded = pad(plaintext, AES.block_size)
         ciphertext = cipher.encrypt(padded)
-        encoded = b64encode(ciphertext) 
+        encoded = b64encode(ciphertext)
 
         return encoded.decode("utf-8")
 
@@ -332,13 +332,13 @@ class SonoffLANModeClient:
             key = hash.digest()
 
             cipher = AES.new(key, AES.MODE_CBC, iv=b64decode(iv))
-            ciphertext = b64decode(encoded)        
+            ciphertext = b64decode(encoded)
             padded = cipher.decrypt(ciphertext)
             plaintext = unpad(padded, AES.block_size)
             return plaintext
 
         except Exception as ex:
-            self.logger.error('Error decrypting for device %s: %s, probably wrong API key', self.device_id, format(ex)) 
+            self.logger.error('Error decrypting for device %s: %s, probably wrong API key', self.device_id, format(ex))
 
 
 

@@ -71,7 +71,7 @@ class SonoffDevice(object):
             self.params_updated_event = asyncio.Event()
 
             self.client.connect()
-             
+
             self.tasks.append(
                 self.loop.create_task(self.send_availability_loop()))
 
@@ -146,7 +146,7 @@ class SonoffDevice(object):
                 await self.params_updated_event.wait()
 
                 await self.client.connected_event.wait()
-                self.logger.debug('Connected!')                
+                self.logger.debug('Connected!')
 
                 update_message = self.client.get_update_payload(
                     self.device_id,
@@ -159,7 +159,7 @@ class SonoffDevice(object):
 
                     await self.loop.run_in_executor(None,
                         self.client.send_switch, update_message)
-                            
+
                     await asyncio.wait_for(
                         self.message_ping_event.wait(),
                         self.calculate_retry(retry_count))
@@ -174,7 +174,7 @@ class SonoffDevice(object):
                             "we didn't get a confirmed acknowledgement, "
                             "state has changed in between retry!")
                         retry_count += 1
-                    
+
                 except asyncio.TimeoutError:
                     self.logger.warn(
                         'Device: %s. Update message not received in timeout period, retry', self.device_id)
@@ -227,7 +227,7 @@ class SonoffDevice(object):
 
         self.message_ping_event.set()
 
-        response = json.loads(message)
+        response = json.loads(message.decode('utf-8'))
 
         if ('switch' in response):
             self.logger.debug(
@@ -241,21 +241,21 @@ class SonoffDevice(object):
 
             # is there is a new message queued to be sent
             if self.params_updated_event.is_set():
-                
+
                 # only send client update message if the change has been successful
                 if self.params['switch'] == response['switch']:
- 
+
                     self.message_acknowledged_event.set()
                     send_update = True
                     self.logger.debug('expected update received from switch: %s',
                         response['switch'])
 
-                else:                   
+                else:
                     self.logger.info(
                         'failed update! state is: %s, expecting: %s',
                         response['switch'], self.params['switch'])
 
-            else:                                          
+            else:
                 # this is a status update message originating from the device
                 # only send client update message if the status has changed
 
@@ -263,7 +263,7 @@ class SonoffDevice(object):
                     'unsolicited update received from switch: %s',
                     response['switch'])
 
-                if self.params['switch'] != response['switch']:       
+                if self.params['switch'] != response['switch']:
                     self.params = {"switch": response['switch']}
                     send_update = True
 
@@ -274,8 +274,8 @@ class SonoffDevice(object):
             self.logger.error(
                 'Unknown message received from device: ' % message)
             raise Exception('Unknown message received from device')
-    
-    
+
+
     def shutdown_event_loop(self):
         self.logger.debug('shutdown_event_loop called')
 
